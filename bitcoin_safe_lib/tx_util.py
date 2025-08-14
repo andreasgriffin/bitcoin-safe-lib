@@ -68,7 +68,7 @@ def hex_to_serialized(hex_string: str) -> bytes:
 
 
 def hex_to_script(hex_string: str) -> bdk.Script:
-    return bdk.Script(list(bytes.fromhex(hex_string)))
+    return bdk.Script(bytes.fromhex(hex_string))
 
 
 def tx_of_psbt_to_hex(psbt: bdk.Psbt):
