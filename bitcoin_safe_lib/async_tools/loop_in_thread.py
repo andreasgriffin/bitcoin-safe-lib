@@ -61,7 +61,7 @@ class _GuiInvoker(QObject):
     def __init__(self):
         super().__init__()
         # Always queued, even if emitted from main thread
-        self.invoke.connect(self._dispatch, Qt.ConnectionType.QueuedConnection)
+        self.invoke.connect(self._dispatch, Qt.ConnectionType.QueuedConnection)  # type: ignore
 
     @staticmethod
     def _dispatch(func, args):

@@ -125,9 +125,9 @@ def format_number(
 
 
 class Satoshis:
-    def __init__(self, value: int, network: bdk.Network):
+    def __init__(self, value: int | bdk.Amount, network: bdk.Network):
         self.network = network
-        self.value = value
+        self.value = value.to_sat() if isinstance(value, bdk.Amount) else value
 
     @classmethod
     def from_btc_str(cls, s: str, network: bdk.Network):
