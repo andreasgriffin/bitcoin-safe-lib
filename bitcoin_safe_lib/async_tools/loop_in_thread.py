@@ -42,6 +42,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Sequence,
     TypeVar,
 )
 
@@ -214,6 +215,84 @@ class LoopInThread:
         # Schedule gather_all on the loop and wrap for awaiting
         concurrent = self._schedule(gather_all())
         return asyncio.wrap_future(concurrent)
+
+    async def gather(
+        self,
+        coroutines: Iterable[Coroutine[Any, Any, _T]],
+        key: Optional[str] = None,
+        multiple_strategy: MultipleStrategy = MultipleStrategy.RUN_INDEPENDENT,
+        early_finish_criteria_function: Optional[Callable[[Sequence[_T]], bool]] = None,
+    ) -> List[_T]:
+        """Run *coros* on the background loop and return their results.
+
+        Parameters
+        ----------
+        coros:
+            The coroutines to execute on the background event loop.
+        key / multiple_strategy:
+            Forwarded to :meth:`run_background` to control key based execution
+            behaviour.
+        early_finish_criteria_function:
+            An optional callback that receives the list of collected results so
+            far.  If it returns ``True`` the remaining coroutines are cancelled
+            and the gathered results are returned immediately.
+
+        Example
+        -------
+        The method is particularly useful for "collect until enough" style
+        workflows.
+
+        Returns
+        -------
+        list
+            The list of results produced by the completed coroutines.  When an
+            early finish callback is provided the list only contains the results
+            that completed before the callback returned ``True``.
+        """
+
+        if not coroutines:
+            return []
+
+        futures = [
+            self.run_background(coro, key=key, multiple_strategy=multiple_strategy) for coro in coroutines
+        ]
+
+        async def _gather() -> List[_T]:
+            async_futures = [asyncio.wrap_future(fut) for fut in futures]
+            pending: set[asyncio.Future[_T]] = set(async_futures)
+            results: List[_T] = []
+
+            try:
+                while pending:
+                    done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+                    for fut in done:
+                        try:
+                            result = fut.result()
+                        except BaseException:
+                            for remaining in pending:
+                                remaining.cancel()
+                            if pending:
+                                await asyncio.gather(*pending, return_exceptions=True)
+                            raise
+
+                        results.append(result)
+
+                    if early_finish_criteria_function and early_finish_criteria_function(results):
+                        for remaining in pending:
+                            remaining.cancel()
+                        if pending:
+                            await asyncio.gather(*pending, return_exceptions=True)
+                        return results
+
+                return results
+            finally:
+                if pending:
+                    for fut in pending:
+                        fut.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+        return await asyncio.wrap_future(self._schedule(_gather()))
 
     def run_foreground(self, coro: Coroutine[Any, Any, _T]) -> _T:
         # Blocks calling thread until coro completes
