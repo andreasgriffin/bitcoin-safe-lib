@@ -27,18 +27,28 @@
 # SOFTWARE.
 
 
-import logging
-from typing import Any, Callable, List, Protocol, Tuple, runtime_checkable
+from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtBoundSignal
+import logging
+from typing import Any, Callable, List, ParamSpec, Protocol, cast, runtime_checkable
+
+from PyQt6.QtCore import QObject
 
 logger = logging.getLogger(__name__)
 
 
+P = ParamSpec("P")
+
+
 @runtime_checkable
-class SignalProtocol(Protocol):
-    connect: Callable[..., Any]
-    disconnect: Callable[..., Any]
+class SignalProtocol(Protocol[P]):
+    def connect(self, slot: Callable[P, Any] | "SignalProtocol[P]") -> Any:
+        ...
+
+    def disconnect(self, slot: Callable[P, Any] | "SignalProtocol[P]" | None = None) -> Any:
+        ...
+
+    emit: Callable[P, Any]
 
 
 class SignalTools:
@@ -69,29 +79,28 @@ class SignalTools:
     @classmethod
     def connect_signal(
         cls,
-        signal: SignalProtocol,
-        handler: Callable[..., Any],
-        **kwargs: Any,
-    ) -> Tuple[SignalProtocol, Callable[..., Any]]:
-        signal.connect(handler, **kwargs)
+        signal: SignalProtocol[P],
+        handler: Callable[P, Any],
+    ) -> tuple[SignalProtocol[P], Callable[P, Any]]:
+        signal.connect(handler)
         return (signal, handler)
 
     @classmethod
     def connect_signal_and_append(
         cls,
-        connected_signals: List[Tuple[SignalProtocol, Callable[..., Any]]],
-        signal: SignalProtocol,
-        handler: Callable[..., Any],
-        **kwargs: Any,
+        connected: List[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
+        signal: SignalProtocol[P],
+        handler: Callable[P, Any],
     ) -> None:
-        signal.connect(handler, **kwargs)
-        connected_signals.append((signal, handler))
+        signal.connect(handler)
+        erased_sig = cast(SignalProtocol[Any], signal)
+        connected.append((erased_sig, handler))
 
     @classmethod
     def disconnect_signal(
         cls,
-        signal: SignalProtocol,
-        handler: Callable[..., Any] | pyqtBoundSignal | SignalProtocol,
+        signal: SignalProtocol[Any],
+        handler: Callable[..., Any] | SignalProtocol[Any] | None,
     ) -> None:
         try:
             signal.disconnect(handler)
@@ -101,27 +110,26 @@ class SignalTools:
     @classmethod
     def disconnect_signals(
         cls,
-        connected_signals: List[Tuple[SignalProtocol, Callable[..., Any] | pyqtBoundSignal | SignalProtocol]],
+        connected: List[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
     ) -> None:
-        while connected_signals:
-            sig, handler = connected_signals.pop()
+        while connected:
+            sig, handler = connected.pop()
             cls.disconnect_signal(sig, handler)
 
 
 class SignalTracker:
     def __init__(self) -> None:
-        self._connected_signals: List[
-            Tuple[SignalProtocol, Callable[..., Any] | pyqtBoundSignal | SignalProtocol]
+        self._connected_signals: list[
+            tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]
         ] = []
 
-    def connect(
-        self,
-        signal: SignalProtocol,
-        handler: Callable[..., Any] | pyqtBoundSignal | SignalProtocol,
-        **kwargs: Any,
-    ) -> None:
-        signal.connect(handler, **kwargs)
-        self._connected_signals.append((signal, handler))
+    def connect(self, signal: SignalProtocol[P], handler: Callable[P, Any] | SignalProtocol[P]) -> None:
+        # precise check happens here
+        signal.connect(handler)
+        # erase ParamSpec for storage (ParamSpec is invariant)
+        erased_sig = cast(SignalProtocol[Any], signal)
+        erased_handler = cast(SignalProtocol[Any], handler)
+        self._connected_signals.append((erased_sig, erased_handler))
 
     def disconnect_all(self) -> None:
         SignalTools.disconnect_signals(self._connected_signals)
