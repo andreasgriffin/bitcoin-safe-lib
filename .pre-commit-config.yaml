@@ -26,7 +26,6 @@ repos:
     rev: v1.11.2 
     hooks:
       - id: mypy
-        files: ^bitcoin_tools/[^/]+\.py$  
         args: 
           - --follow-imports=skip
           - --check-untyped-defs
@@ -48,4 +47,13 @@ repos:
         additional_dependencies: 
           - types-requests
           - pyqt6 
-          - bdkpython==1.2.0
+
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: Pyright Type Check (npm install -g pyright)
+        entry: bash -c 'if command -v pyright >/dev/null; then pyright; else echo "pyright not installed, skipping..."; exit 0; fi'
+        language: system
+        types: [python]
+        pass_filenames: false

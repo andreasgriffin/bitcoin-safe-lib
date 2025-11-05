@@ -2,32 +2,28 @@
 
 [[package]]
 name = "bdkpython"
-version = "1.2.0"
+version = "2.0.0"
 description = "The Python language bindings for the Bitcoin Development Kit"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "bdkpython-1.2.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:1b72415b448b88ea0ce2acaeaa820880bb83084e08afa5a4c6538fd5a2337338"},
-    {file = "bdkpython-1.2.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:6bee46d972fa4d67cabbfb84dfbc35b8cdafd9ede370ccec968b502043cc75ed"},
-    {file = "bdkpython-1.2.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:28205a0feca258c950689ba94d669ae1ccc4d6c195fa4b47e3c2eac420954e95"},
-    {file = "bdkpython-1.2.0-cp310-cp310-win_amd64.whl", hash = "sha256:ad843ea21e86176d7f8318da1b79f67e56fca892eed913ee39158583edc481d3"},
-    {file = "bdkpython-1.2.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2374e618c7850f42056c087f10a71b42ff065445f2ca71826f37325d328c3f1f"},
-    {file = "bdkpython-1.2.0-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:684c1192f666fbe9783e3d261937f69dd0449a6d422e00224dca53fa949a2175"},
-    {file = "bdkpython-1.2.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:157867dac2549bdba2893c894329bf6df5973893a395b45cd957f137b1a229e6"},
-    {file = "bdkpython-1.2.0-cp311-cp311-win_amd64.whl", hash = "sha256:8520ddc3295142e93924ec3bd3907f325088b1a23e5e5b75a70ea9f243f991e3"},
-    {file = "bdkpython-1.2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:06794dee353d7d7ea58d7031941ffd79d2a0dd6c92868fdfc8330568954e7bef"},
-    {file = "bdkpython-1.2.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:ec8a79721dab099565c2eaa95432099654201e64b008c1a16276fbb05ab34bcf"},
-    {file = "bdkpython-1.2.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:3030cfdfee1d082ad6aba791b2d159c1a709ac9e9f9c82cb6f091485f4dfab6a"},
-    {file = "bdkpython-1.2.0-cp312-cp312-win_amd64.whl", hash = "sha256:c04f421ec5eaa96a656e59ca9b760f8d2e2598da143b1b28f3a5c545130bd141"},
-    {file = "bdkpython-1.2.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:51afce761fcb9407fd4bbf4e5ca3228cdad61f81de6a3f00f233e13a1d623348"},
-    {file = "bdkpython-1.2.0-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:4310e724b2208552c04bc5605df1c3e8a0962f68c1d81bc3fea3aad0ecd98351"},
-    {file = "bdkpython-1.2.0-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:f0fc67e593e9bca57a90c17efc294abfb98550997d67cc6bc2579ef0fc908064"},
-    {file = "bdkpython-1.2.0-cp38-cp38-win_amd64.whl", hash = "sha256:36da2d46765d46090e88a9d4c834cf7d4c3b695f1324b34a47d745cb60e077b7"},
-    {file = "bdkpython-1.2.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:d30e15eb57b3c84f6277d8f93aaab8ae138db83d9c4d0b426d42290adcd65de5"},
-    {file = "bdkpython-1.2.0-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:518802fec5de7d32f0faa9c63a3a1ac860901260cd7b96d3b845966c3079e063"},
-    {file = "bdkpython-1.2.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:9b507c09e9515c7cfb150085821443784c4fe7e3f9a90067f31b637a736887e1"},
-    {file = "bdkpython-1.2.0-cp39-cp39-win_amd64.whl", hash = "sha256:90ce403222877a4ba6fac8b43a89e1628f0eb2d21a5999a58d743e644d71fcc4"},
+    {file = "bdkpython-2.0.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:85589109c2fd6d45a603bb28c2db299c42ca512f3f743b4361fd098fc771928f"},
+    {file = "bdkpython-2.0.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:b9b2250f3c29982d0527c2d653e2c94aff6824eae5406abf7c2a4516575f562c"},
+    {file = "bdkpython-2.0.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:7344ca9ae0dad6f2d47d0a34c49b1c3324b2aa7c6cb9809e31a2cd7367fce86e"},
+    {file = "bdkpython-2.0.0-cp310-cp310-win_amd64.whl", hash = "sha256:1f1113be576dcffddaafd26b500eed805bee95397c32c19a7bcf34b75d4a5b57"},
+    {file = "bdkpython-2.0.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a2de453fc0fcdec4492cb768bc5157b6f046d8b1b5f2a464dcf87b36898f2fd0"},
+    {file = "bdkpython-2.0.0-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:cef53d02d6c9dc54ba931dd797461996e37926e17b276bf17a1d65473de075f0"},
+    {file = "bdkpython-2.0.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:6be01ba1db861cb982040509a64111d3f3517f93a21f93230d9652184d88d752"},
+    {file = "bdkpython-2.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:e4000ae25a614568d6551a2b07864c4efe83c2529e407acece6a6e8b5b8ca417"},
+    {file = "bdkpython-2.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ea4113cb957d747183e4dd7516d688d4cb17d9d064ab58bc0412d3d378b3abbf"},
+    {file = "bdkpython-2.0.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:ddb461048c5a9714aff0858b988952efea114630b0757b7483d0341448042c2b"},
+    {file = "bdkpython-2.0.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:f4be77e2ef8cc1b53ab8357afad023055a063c98447ad73964e39da2dbdb2c86"},
+    {file = "bdkpython-2.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:a311d7a76be7dea50f69349f2649dbfce142e4a7302dc8747c6f1a313cb19c48"},
+    {file = "bdkpython-2.0.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:17bc0a170dffd3106291176e0be37d974296868b4d2b45f163ef9f626332afe5"},
+    {file = "bdkpython-2.0.0-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:d484660eac248cba7f06bde924deff54c545feb95dde372a3fc80f943f526927"},
+    {file = "bdkpython-2.0.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:7eaa1b83c335c66c2622b1b9892f144dceb9f3feeac5b4f48299baa744a42d62"},
+    {file = "bdkpython-2.0.0-cp313-cp313-win_amd64.whl", hash = "sha256:b49cce09fb241bf7bef642c1d88a5603120ef447011131610af73a439359f49e"},
 ]
 
 [[package]]
@@ -321,18 +317,18 @@ files = [
 
 [[package]]
 name = "typing-extensions"
-version = "4.14.0"
+version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 markers = "python_version == \"3.10\""
 files = [
-    {file = "typing_extensions-4.14.0-py3-none-any.whl", hash = "sha256:a1514509136dd0b477638fc68d6a91497af5076466ad0fa6c338e44e359944af"},
-    {file = "typing_extensions-4.14.0.tar.gz", hash = "sha256:8676b788e32f02ab42d9e7c61324048ae4c6d844a399eebace3d4979d75ceef4"},
+    {file = "typing_extensions-4.14.1-py3-none-any.whl", hash = "sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76"},
+    {file = "typing_extensions-4.14.1.tar.gz", hash = "sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36"},
 ]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "777881b77fb48e46d57a297cd6a9b877a11bf0f5d0ff35526d0ee32c63361cd5"
+content-hash = "bf3c5c479b48f7f9af084ca951b02b5e9f4960fde48aa15160620759c6d88b39"

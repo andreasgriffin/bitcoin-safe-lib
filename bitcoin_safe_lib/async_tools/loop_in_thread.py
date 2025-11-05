@@ -61,7 +61,7 @@ class _GuiInvoker(QObject):
     def __init__(self):
         super().__init__()
         # Always queued, even if emitted from main thread
-        self.invoke.connect(self._dispatch, Qt.ConnectionType.QueuedConnection)
+        self.invoke.connect(self._dispatch, Qt.ConnectionType.QueuedConnection)  # type: ignore
 
     @staticmethod
     def _dispatch(func, args):
@@ -130,7 +130,7 @@ class LoopInThread:
     def _schedule(self, coro: Coroutine[Any, Any, _T]) -> Future[_T]:
         if not self._loop or not self._loop.is_running():
             logger.error("Loop is not running; cannot schedule task.")
-            fut = Future()
+            fut: Future = Future()
             fut.set_running_or_notify_cancel()
             fut.cancel()
             return fut
@@ -152,8 +152,13 @@ class LoopInThread:
         with lock:
             if multiple_strategy is MultipleStrategy.REJECT_NEW_TASK:
                 if any(not f.done() for f in bucket):
-                    fut = Future()
-                    fut.set_running_or_notify_cancel()
+                    # ← IMPORTANT: dispose of the *unscheduled* coroutine
+                    try:
+                        coro.close()  # prevents "was never awaited" warning
+                    except Exception:
+                        pass
+
+                    fut: Future = Future()
                     fut.cancel()
                     return fut
 

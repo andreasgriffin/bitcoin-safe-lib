@@ -5,7 +5,7 @@ line-length = 110
 
 [tool.poetry]
 name = "bitcoin-safe-lib"
-version = "0.2.8"
+version = "1.0.0"
 authors = ["andreasgriffin <andreasgriffin@proton.me>"]
 license = "GPL-3.0"
 readme = "README.md"
@@ -16,7 +16,7 @@ homepage = "https://github.com/andreasgriffin"
 python = ">=3.10,<3.13"
 numpy = "2.2.1" # error in wine/pyinstaller when increased
 pyqt6 = "^6.9.0"
-bdkpython = "^1.2.0"
+bdkpython ="^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
