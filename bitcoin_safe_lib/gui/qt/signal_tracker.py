@@ -123,9 +123,11 @@ class SignalTracker:
             tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]
         ] = []
 
-    def connect(self, signal: SignalProtocol[P], handler: Callable[P, Any] | SignalProtocol[P]) -> None:
+    def connect(
+        self, signal: SignalProtocol[P], handler: Callable[P, Any] | SignalProtocol[P], *args, **kwargs
+    ) -> None:
         # precise check happens here
-        signal.connect(handler)
+        signal.connect(handler, *args, **kwargs)
         # erase ParamSpec for storage (ParamSpec is invariant)
         erased_sig = cast(SignalProtocol[Any], signal)
         erased_handler = cast(SignalProtocol[Any], handler)
