@@ -104,6 +104,7 @@ class LoopInThread:
         self._key_tasks: Dict[str, List[Future[Any]]] = {}
         self._locks: Dict[str, threading.Lock] = {}
         self._global_lock = threading.Lock()
+        self._loop_started = threading.Event()
 
         self._start()
 
@@ -120,6 +121,7 @@ class LoopInThread:
 
         def _runner():
             asyncio.set_event_loop(loop)
+            self._loop_started.set()
             loop.run_forever()
 
         thread = threading.Thread(target=_runner, daemon=True, name="AsyncioLoopThread")
@@ -127,7 +129,13 @@ class LoopInThread:
         self._loop = loop
         self._thread = thread
 
+        self._loop_started.wait()
+
     def _schedule(self, coro: Coroutine[Any, Any, _T]) -> Future[_T]:
+
+        if self._loop_started:
+            self._loop_started.wait(timeout=0.5)
+
         if not self._loop or not self._loop.is_running():
             logger.error("Loop is not running; cannot schedule task.")
             fut: Future = Future()
