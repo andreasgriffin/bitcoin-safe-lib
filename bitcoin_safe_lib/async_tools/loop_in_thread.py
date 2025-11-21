@@ -357,7 +357,7 @@ class LoopInThread:
         if cb:
             self._invoke_main(cb)
 
-    def stop(self, timeout: float | None = 5.0) -> None:
+    def stop(self, timeout: float | None = 0.5) -> None:
         # Cancel all pending user-provided cancel callbacks
         for fut in list(self._tasks):
             self.cancel_task(fut)
