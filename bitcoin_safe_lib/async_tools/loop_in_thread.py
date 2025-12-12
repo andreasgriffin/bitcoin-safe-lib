@@ -31,8 +31,10 @@ import asyncio
 import logging
 import sys
 import threading
+from collections.abc import Callable, Coroutine
 from concurrent.futures import CancelledError, Future
 from enum import Enum, auto
+from types import TracebackType
 from typing import (
     Any,
     Awaitable,
@@ -43,6 +45,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Tuple,
     TypeVar,
 )
 
@@ -70,11 +73,16 @@ class _GuiInvoker(QObject):
 
 _GUI_INVOKER = _GuiInvoker()
 
-_T = TypeVar("_T")
-_OnSuccess = Callable[[Any], None]
-_OnDone = Callable[[Any], None]
-_OnError = Callable[[tuple], None]
-_Cancel = Callable[[], None]
+ExcInfo = Tuple[
+    type[BaseException],
+    BaseException,
+    Optional[TracebackType],
+]
+T = TypeVar("T")
+OnSuccess = Callable[[T], None]
+OnDone = Callable[[Optional[T]], None]
+OnError = Callable[[ExcInfo], None]
+Cancel = Callable[[], None]
 
 
 class MultipleStrategy(Enum):
@@ -100,7 +108,7 @@ class LoopInThread:
     ):
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
-        self._tasks: Dict[Future[Any], _Cancel] = {}
+        self._tasks: Dict[Future[Any], Cancel] = {}
         self._key_tasks: Dict[str, List[Future[Any]]] = {}
         self._locks: Dict[str, threading.Lock] = {}
         self._global_lock = threading.Lock()
@@ -131,7 +139,7 @@ class LoopInThread:
 
         self._loop_started.wait()
 
-    def _schedule(self, coro: Coroutine[Any, Any, _T]) -> Future[_T]:
+    def _schedule(self, coro: Coroutine[Any, Any, T]) -> Future[T]:
 
         if self._loop_started:
             self._loop_started.wait(timeout=0.5)
@@ -146,10 +154,10 @@ class LoopInThread:
 
     def run_background(
         self,
-        coro: Coroutine[Any, Any, _T],
+        coro: Coroutine[Any, Any, T],
         key: Optional[str] = None,
         multiple_strategy: MultipleStrategy = MultipleStrategy.RUN_INDEPENDENT,
-    ) -> Future[_T]:
+    ) -> Future[T]:
         # No key logic: fire-and-forget on the loop
         if key is None or multiple_strategy is MultipleStrategy.RUN_INDEPENDENT:
             return self._schedule(coro)
@@ -177,7 +185,7 @@ class LoopInThread:
             if multiple_strategy is MultipleStrategy.QUEUE and bucket:
                 parent = bucket[-1]
 
-                async def wrapper() -> _T:
+                async def wrapper() -> T:
                     try:
                         await asyncio.wrap_future(parent)
                     except Exception:
@@ -210,10 +218,10 @@ class LoopInThread:
 
     def run_parallel(
         self,
-        coros: Iterable[Coroutine[Any, Any, _T]],
+        coros: Iterable[Coroutine[Any, Any, T]],
         key: Optional[str] = None,
         multiple_strategy: MultipleStrategy = MultipleStrategy.RUN_INDEPENDENT,
-    ) -> Awaitable[List[_T]]:
+    ) -> Awaitable[List[T]]:
         """
         Schedule multiple coroutines under the same key/strategy.
         Returns an asyncio.Future you can `await` (it wraps the concurrent.Future).
@@ -221,7 +229,7 @@ class LoopInThread:
         # Schedule each on the loop (concurrent.Future)
         futures = [self.run_background(c, key=key, multiple_strategy=multiple_strategy) for c in coros]
 
-        async def gather_all() -> List[_T]:
+        async def gather_all() -> List[T]:
             async_futs = [asyncio.wrap_future(f) for f in futures]
             return await asyncio.gather(*async_futs)
 
@@ -231,11 +239,11 @@ class LoopInThread:
 
     async def gather(
         self,
-        coroutines: Iterable[Coroutine[Any, Any, _T]],
+        coroutines: Iterable[Coroutine[Any, Any, T]],
         key: Optional[str] = None,
         multiple_strategy: MultipleStrategy = MultipleStrategy.RUN_INDEPENDENT,
-        early_finish_criteria_function: Optional[Callable[[Sequence[_T]], bool]] = None,
-    ) -> List[_T]:
+        early_finish_criteria_function: Optional[Callable[[Sequence[T]], bool]] = None,
+    ) -> List[T]:
         """Run *coros* on the background loop and return their results.
 
         Parameters
@@ -270,10 +278,10 @@ class LoopInThread:
             self.run_background(coro, key=key, multiple_strategy=multiple_strategy) for coro in coroutines
         ]
 
-        async def _gather() -> List[_T]:
+        async def _gather() -> List[T]:
             async_futures = [asyncio.wrap_future(fut) for fut in futures]
-            pending: set[asyncio.Future[_T]] = set(async_futures)
-            results: List[_T] = []
+            pending: set[asyncio.Future[T]] = set(async_futures)
+            results: List[T] = []
 
             try:
                 while pending:
@@ -307,25 +315,25 @@ class LoopInThread:
 
         return await asyncio.wrap_future(self._schedule(_gather()))
 
-    def run_foreground(self, coro: Coroutine[Any, Any, _T]) -> _T:
+    def run_foreground(self, coro: Coroutine[Any, Any, T]) -> T:
         # Blocks calling thread until coro completes
         return self._schedule(coro).result()
 
     def run_task(
         self,
-        coro: Coroutine[Any, Any, _T],
-        on_success: Optional[_OnSuccess] = None,
-        on_done: Optional[_OnDone] = None,
-        on_error: Optional[_OnError] = None,
-        cancel: Optional[_Cancel] = None,
+        coro: Coroutine[Any, Any, T],
+        on_success: Optional[OnSuccess] = None,
+        on_done: Optional[OnDone] = None,
+        on_error: Optional[OnError] = None,
+        cancel: Optional[Cancel] = None,
         key: Optional[str] = None,
         multiple_strategy: MultipleStrategy = MultipleStrategy.RUN_INDEPENDENT,
-    ) -> Future[_T]:
+    ) -> Future[T]:
         fut = self.run_background(coro, key=key, multiple_strategy=multiple_strategy)
         if cancel:
             self._tasks[fut] = cancel
 
-        def _handle(f: Future[_T]):
+        def _handle(f: Future[T]):
             result = None  # ensure defined
             if f.cancelled():
                 pass
