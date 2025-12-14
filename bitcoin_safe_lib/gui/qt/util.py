@@ -189,6 +189,7 @@ def question_dialog(
     title: str = "Question",
     true_button: Union[QMessageBox.StandardButton, QPushButton, str] = QMessageBox.StandardButton.Yes,
     false_button: Union[QMessageBox.StandardButton, QPushButton, str] = QMessageBox.StandardButton.Cancel,
+    default_is_true_button: bool = True,
 ) -> Optional[bool]:
     msg = QMessageBox()
     msg.setWindowTitle(title)
@@ -223,10 +224,10 @@ def question_dialog(
 
     # add both buttons (and keep hold of the actual instances)
     true_btn = _add(true_button, QMessageBox.ButtonRole.AcceptRole)
-    _add(false_button, QMessageBox.ButtonRole.RejectRole)
+    false_btn = _add(false_button, QMessageBox.ButtonRole.RejectRole)
 
     # set the default button to our "true" button instance
-    msg.setDefaultButton(true_btn)
+    msg.setDefaultButton(true_btn if default_is_true_button else false_btn)
 
     # run the dialog
     msg.exec()
