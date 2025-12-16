@@ -41,7 +41,7 @@ from .util import is_dark_mode
 
 
 class SvgTools:
-    def __init__(self, get_icon_path: Callable[[str], str], theme_file: str) -> None:
+    def __init__(self, get_icon_path: Callable[[str], str], theme_file: str | None) -> None:
         self.get_icon_path = get_icon_path
         self.theme_file = theme_file
 
@@ -57,10 +57,12 @@ class SvgTools:
                 return file.read()
 
     def auto_theme_svg(self, svg_content: str, color: QColor | None = None) -> str:
-        with open(self.theme_file, "r") as file:
-            csv_reader = csv.reader(file)
-            all_rows = [row for row in csv_reader if row]
-            header, csv_rows = all_rows[0], all_rows[1:]
+        csv_rows = []
+        if self.theme_file:
+            with open(self.theme_file, "r") as file:
+                csv_reader = csv.reader(file)
+                all_rows = [row for row in csv_reader if row]
+                header, csv_rows = all_rows[0], all_rows[1:]
 
         if color is None:
             color = QApplication.palette().color(QPalette.ColorRole.WindowText)
