@@ -241,12 +241,6 @@ class SpinningButton(QPushButton):
     def iconSize(self) -> QSize:
         return self._icon_size
 
-    def sizeHint(self) -> QSize:
-        default_size_hint = super().sizeHint()
-        total_width = default_size_hint.width() + self._icon_size.width() + 2 * self.padding
-        total_height = max(default_size_hint.height(), self._icon_size.height())
-        return QSize(total_width, total_height)
-
 
 if __name__ == "__main__":
 
