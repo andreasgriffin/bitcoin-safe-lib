@@ -29,6 +29,7 @@
 
 import os
 import sys
+from functools import partial
 from typing import Optional
 
 from PyQt6.QtCore import QByteArray, QRectF, QSize, Qt, QTimer, pyqtSignal
@@ -43,10 +44,6 @@ from bitcoin_safe_lib.gui.qt.signal_tracker import SignalProtocol
 def resource_path(*parts: str) -> str:
     pkg_dir = os.path.split(os.path.realpath(__file__))[0]
     return os.path.join(pkg_dir, *parts)
-
-
-def icon_path(icon_basename: str) -> str:
-    return resource_path("icons", icon_basename)
 
 
 DEFAULT_ENABLED_ICON = QIcon()
@@ -83,12 +80,15 @@ class SpinningButton(QPushButton):
         parent=None,
         timeout: int = 60,
         disable_while_spinning: bool = True,
+        svg_tools: SvgTools | None = None,
     ) -> None:
         super().__init__(text, parent)
 
         self.disable_while_spinning = disable_while_spinning
 
-        spinning_svg_content = spinning_svg_content if spinning_svg_content else DEFAULT_SPINNER_SVG
+        spinning_svg_content = (
+            svg_tools or SvgTools(get_icon_path=partial(resource_path, "icons"), theme_file=None)
+        ).auto_theme_svg(spinning_svg_content if spinning_svg_content else DEFAULT_SPINNER_SVG)
         self.svg_renderer = QSvgRenderer(QByteArray(spinning_svg_content.encode("utf-8")))
 
         if not self.svg_renderer.isValid():
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         """Get icon path."""
         return resource_path("icons", icon_basename)
 
-    svg_tools = SvgTools(get_icon_path=get_icon_path, theme_file=get_icon_path("theme.csv"))
+    svg_tools = SvgTools(get_icon_path=get_icon_path, theme_file=None)
 
     class MainWindow(QMainWindow):
         def __init__(self) -> None:
@@ -256,8 +256,9 @@ if __name__ == "__main__":
 
             self.button = SpinningButton(
                 "testing",
-                enabled_icon=svg_tools.svg_to_icon(DEFAULT_SPINNER_SVG),
+                enabled_icon=svg_tools.svg_to_icon(svg_tools.auto_theme_svg(DEFAULT_SPINNER_SVG)),
                 timeout=3,
+                svg_tools=svg_tools,
             )
 
             self.button.signal_started_spinning.connect(lambda: print("signal_started_spinning"))

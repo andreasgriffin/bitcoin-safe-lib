@@ -64,10 +64,14 @@ class SvgTools:
                 all_rows = [row for row in csv_reader if row]
                 header, csv_rows = all_rows[0], all_rows[1:]
 
+        replace_strings = csv_rows
+
         if color is None:
             color = QApplication.palette().color(QPalette.ColorRole.WindowText)
         # Replace "currentColor" in the SVG with the desired color
-        replace_strings = csv_rows + [["WindowText", color.name(), color.name()]]
+        if "currentColor" not in [r[0] for r in csv_rows]:
+            replace_strings += [["currentColor", color.name(), color.name()]]
+        replace_strings += [["WindowText", color.name(), color.name()]]
 
         for org, light_mode, dark_mode in replace_strings:
             svg_content = svg_content.replace(org, dark_mode if is_dark_mode() else light_mode)
