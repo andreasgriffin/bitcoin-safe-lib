@@ -27,8 +27,9 @@
 # SOFTWARE.
 
 
+import enum
 import logging
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Literal, Union
 
 import bdkpython as bdk
 from PyQt6.QtCore import QLocale
@@ -42,25 +43,37 @@ from bitcoin_safe_lib.util import color_format_str
 logger = logging.getLogger(__name__)
 
 
-def unit_str(network: bdk.Network) -> str:
-    return "BTC" if network is None or network == bdk.Network.BITCOIN else "tBTC"
+class SatSymbol(enum.Enum):
+    Sat = "Sat"
+    UNICODE = "⚡"
 
 
-def unit_sat_str(network: bdk.Network) -> str:
-    return "Sat" if network is None or network == bdk.Network.BITCOIN else "tSat"
+class BitcoinSymbol(enum.Enum):
+    ISO = "BTC"
+    UNICODE = "₿"
 
 
-def unit_fee_str(network: bdk.Network) -> str:
+def unit_str(network: bdk.Network, btc_symbol: str = BitcoinSymbol.ISO.value) -> str:
+    return btc_symbol if network is None or network == bdk.Network.BITCOIN else f"t{btc_symbol}"
+
+
+def unit_sat_str(network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value) -> str:
+    return sat_symbol if network is None or network == bdk.Network.BITCOIN else f"t{sat_symbol}"
+
+
+def unit_fee_str(network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value) -> str:
     "Sat/vB"
-    return "Sat/vB" if network is None or network == bdk.Network.BITCOIN else "tSat/vB"
+    return f"{sat_symbol}/vB" if network is None or network == bdk.Network.BITCOIN else f"t{sat_symbol}/vB"
 
 
-def format_fee_rate_splitted(fee_rate: float, network: bdk.Network) -> Tuple[float, str]:
-    return round(fee_rate, 1), unit_fee_str(network)
+def format_fee_rate_splitted(
+    fee_rate: float, network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value
+) -> tuple[float, str]:
+    return round(fee_rate, 1), unit_fee_str(network, sat_symbol=sat_symbol)
 
 
-def format_fee_rate(fee_rate: float, network: bdk.Network) -> str:
-    fee, unit = format_fee_rate_splitted(fee_rate=fee_rate, network=network)
+def format_fee_rate(fee_rate: float, network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value) -> str:
+    fee, unit = format_fee_rate_splitted(fee_rate=fee_rate, network=network, sat_symbol=sat_symbol)
     return f"{fee} {unit}"
 
 
@@ -68,7 +81,7 @@ def format_fee_rate(fee_rate: float, network: bdk.Network) -> str:
 @register_cache()
 def format_number(
     number,
-    color_formatting: Optional[Literal["html", "rich", "bash"]] = None,
+    color_formatting: Literal["html", "rich", "bash"] | None = None,
     include_decimal_spaces=True,
     base_color="#000000",
     indicate_balance_change=False,
@@ -76,7 +89,7 @@ def format_number(
 ):
     number = int(number)
     # Split into integer and decimal parts
-    integer_part, decimal_part = f"{number/1e8:.8f}".split(".")
+    integer_part, decimal_part = f"{number / 1e8:.8f}".split(".")
 
     # Format the integer part with commas or OS native separators
     abs_integer_part_formatted = QLocale().toString(abs(int(integer_part)))
@@ -105,7 +118,7 @@ def format_number(
             decimal_groups[i] = color_format_str(decimal_groups[i], color, color_formatting)
 
     # No color formatting applied if color_formatting is None
-    space_character = "\u00A0" if unicode_space_character else " "
+    space_character = "\u00a0" if unicode_space_character else " "
     decimal_part_formatted = (
         space_character.join(decimal_groups) if include_decimal_spaces else "".join(decimal_groups)
     )
@@ -130,8 +143,13 @@ class Satoshis:
         self.value = value.to_sat() if isinstance(value, bdk.Amount) else value
 
     @classmethod
-    def from_btc_str(cls, s: str, network: bdk.Network):
-        f = QLocale().toDouble(str(s).replace(unit_str(network), "").strip().replace(" ", ""))[0] * 1e8
+    def from_btc_str(cls, s: str, network: bdk.Network, btc_symbol: str = BitcoinSymbol.ISO.value):
+        f = (
+            QLocale().toDouble(
+                str(s).replace(unit_str(network, btc_symbol=btc_symbol), "").strip().replace(" ", "")
+            )[0]
+            * 1e8
+        )
         value = int(round(f))
         return Satoshis(value=value, network=network)
 
@@ -153,64 +171,78 @@ class Satoshis:
 
     def format_splitted(
         self,
-        color_formatting: Optional[Literal["html", "rich", "bash"]] = "rich",
+        color_formatting: Literal["html", "rich", "bash"] | None = "rich",
         unicode_space_character=True,
-    ) -> Tuple[str, str]:
+        btc_symbol: str = BitcoinSymbol.ISO.value,
+    ) -> tuple[str, str]:
         number = format_number(
             self.value,
             color_formatting=color_formatting,
             include_decimal_spaces=True,
             unicode_space_character=unicode_space_character,
         )
-        return number, color_format_str(unit_str(self.network), color_formatting=color_formatting)
+        return number, color_format_str(
+            unit_str(self.network, btc_symbol=btc_symbol), color_formatting=color_formatting
+        )
 
     def format(
         self,
-        color_formatting: Optional[Literal["html", "rich", "bash"]] = "rich",
+        color_formatting: Literal["html", "rich", "bash"] | None = "rich",
         show_unit=False,
         unicode_space_character=True,
+        btc_symbol: str = BitcoinSymbol.ISO.value,
     ):
         number, unit = self.format_splitted(
-            color_formatting=color_formatting, unicode_space_character=unicode_space_character
+            color_formatting=color_formatting,
+            unicode_space_character=unicode_space_character,
+            btc_symbol=btc_symbol,
         )
         if show_unit:
             return f"{number} {unit}"
         else:
             return number
 
-    def str_with_unit(self, color_formatting: Optional[Literal["html", "rich", "bash"]] = "rich"):
-        return self.format(color_formatting=color_formatting, show_unit=True)
+    def str_with_unit(
+        self,
+        color_formatting: Literal["html", "rich", "bash"] | None = "rich",
+        btc_symbol: str = BitcoinSymbol.ISO.value,
+    ):
+        return self.format(color_formatting=color_formatting, show_unit=True, btc_symbol=btc_symbol)
 
-    def str_as_change(self, color_formatting: Optional[Literal["html", "rich", "bash"]] = None, unit=False):
-
+    def str_as_change(
+        self,
+        color_formatting: Literal["html", "rich", "bash"] | None = None,
+        unit=False,
+        btc_symbol: str = BitcoinSymbol.ISO.value,
+    ):
         return (
-            f"{format_number(self.value, color_formatting=color_formatting, include_decimal_spaces=True,   indicate_balance_change=True)}"
+            f"{format_number(self.value, color_formatting=color_formatting, include_decimal_spaces=True, indicate_balance_change=True)}"
             + (
-                f" {color_format_str( unit_str(self.network), color_formatting=color_formatting)}"
+                f" {color_format_str(unit_str(self.network, btc_symbol=btc_symbol), color_formatting=color_formatting)}"
                 if unit
                 else ""
             )
         )
 
-    def format_as_balance(self):
-        return translate("util", "Balance: {amount}").format(amount=self.str_with_unit())
+    def format_as_balance(self, btc_symbol: str = BitcoinSymbol.ISO.value):
+        return translate("util", "Balance: {amount}").format(amount=self.str_with_unit(btc_symbol=btc_symbol))
 
     def __bool__(self):
         return bool(self.value)
 
     @classmethod
-    def sum(cls, l: Union[List, Tuple, "Satoshis"]) -> "Satoshis":
-        def calc_satoshi(v: Union[List, Tuple, "Satoshis"]) -> Satoshis:
+    def sum(cls, obj: Union[list, tuple, "Satoshis"]) -> "Satoshis":
+        def calc_satoshi(v: Union[list, tuple, "Satoshis"]) -> Satoshis:
             # allow recursive summing
             return Satoshis.sum(v) if isinstance(v, (list, tuple)) else v
 
-        if not l:
+        if not obj:
             raise ValueError("Cannot sum an empty list")
-        if isinstance(l, Satoshis):
-            return l
+        if isinstance(obj, Satoshis):
+            return obj
 
-        summed = calc_satoshi(l[0])
-        for v in l[1:]:
+        summed = calc_satoshi(obj[0])
+        for v in obj[1:]:
             summed += calc_satoshi(v)
 
         return summed

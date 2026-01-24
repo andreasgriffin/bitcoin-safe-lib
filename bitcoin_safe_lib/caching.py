@@ -29,12 +29,11 @@
 
 import logging
 from functools import _lru_cache_wrapper, lru_cache
-from typing import List
 
 logger = logging.getLogger(__name__)
 
 cached_always_keep_functions = []
-cached_functions: List[_lru_cache_wrapper] = []
+cached_functions: list[_lru_cache_wrapper] = []
 
 
 def clear_cache():
