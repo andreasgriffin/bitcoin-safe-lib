@@ -30,7 +30,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, List, ParamSpec, Protocol, cast, runtime_checkable
+from collections.abc import Callable
+from typing import Any, ParamSpec, Protocol, cast, runtime_checkable
 
 from PyQt6.QtCore import QObject
 
@@ -42,11 +43,9 @@ P = ParamSpec("P")
 
 @runtime_checkable
 class SignalProtocol(Protocol[P]):
-    def connect(self, slot: Callable[P, Any] | "SignalProtocol[P]") -> Any:
-        ...
+    def connect(self, slot: Callable[P, Any] | SignalProtocol[P]) -> Any: ...
 
-    def disconnect(self, slot: Callable[P, Any] | "SignalProtocol[P]" | None = None) -> Any:
-        ...
+    def disconnect(self, slot: Callable[P, Any] | SignalProtocol[P] | None = None) -> Any: ...
 
     emit: Callable[P, Any]
 
@@ -88,7 +87,7 @@ class SignalTools:
     @classmethod
     def connect_signal_and_append(
         cls,
-        connected: List[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
+        connected: list[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
         signal: SignalProtocol[P],
         handler: Callable[P, Any],
     ) -> None:
@@ -110,7 +109,7 @@ class SignalTools:
     @classmethod
     def disconnect_signals(
         cls,
-        connected: List[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
+        connected: list[tuple[SignalProtocol[Any], Callable[..., Any] | SignalProtocol[Any]]],
     ) -> None:
         while connected:
             sig, handler = connected.pop()

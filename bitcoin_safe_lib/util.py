@@ -31,20 +31,14 @@ import hashlib
 import logging
 import re
 import time
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
     Literal,
-    Optional,
-    Set,
     TypeVar,
-    Union,
 )
 
 import numpy as np
@@ -64,20 +58,19 @@ def is_int(a: Any) -> bool:
     return True
 
 
-def path_to_rel_home_path(path: Union[Path, str]) -> Path:
+def path_to_rel_home_path(path: Path | str) -> Path:
     try:
-
         return Path(path).relative_to(Path.home())
     except Exception as e:
         logger.debug(str(e))
         return Path(path)
 
 
-def rel_home_path_to_abs_path(rel_home_path: Union[Path, str]) -> Path:
+def rel_home_path_to_abs_path(rel_home_path: Path | str) -> Path:
     return Path.home() / rel_home_path
 
 
-def compare_dictionaries(dict1: Dict, dict2: Dict):
+def compare_dictionaries(dict1: dict, dict2: dict):
     # Get unique keys from both dictionaries
     unique_keys = set(dict1.keys()) ^ set(dict2.keys())
 
@@ -93,11 +86,11 @@ def compare_dictionaries(dict1: Dict, dict2: Dict):
     return result
 
 
-def inv_dict(d: Dict):
+def inv_dict(d: dict):
     return {v: k for k, v in d.items()}
 
 
-def all_subclasses(cls) -> Set:
+def all_subclasses(cls) -> set:
     """Return all (transitive) subclasses of cls."""
     res = set(cls.__subclasses__())
     for sub in res.copy():
@@ -138,7 +131,7 @@ def time_logger(func):
 
 def threadtable(f, arglist, max_workers=20):
     with ThreadPoolExecutor(max_workers=int(max_workers)) as executor:
-        logger.debug("Starting {} threads {}({})".format(max_workers, str(f), str(arglist)))
+        logger.debug(f"Starting {max_workers} threads {str(f)}({str(arglist)})")
         res = []
         for arg in arglist:
             res.append(executor.submit(f, arg))
@@ -146,7 +139,7 @@ def threadtable(f, arglist, max_workers=20):
 
 
 @time_logger
-def threadtable_batched(f: Callable[[T], T2], txs: List[T], number_chunks=8) -> List[T2]:
+def threadtable_batched(f: Callable[[T], T2], txs: list[T], number_chunks=8) -> list[T2]:
     chunks = np.array_split(np.array(txs), number_chunks)
 
     def batched_f(txs):
@@ -156,13 +149,14 @@ def threadtable_batched(f: Callable[[T], T2], txs: List[T], number_chunks=8) -> 
     return sum(result, [])
 
 
-def clean_dict(d: Dict):
+def clean_dict(d: dict):
     return {k: v for k, v in d.items() if v}
 
 
-def clean_list(l: Iterable[T | None]) -> List[T]:
-    "removes none items off a list"
-    return [v for v in l if v]
+# ruff: noqa: UP047
+def clean_list(item: Iterable[T | None]) -> list[T]:
+    "removes none, 0 or '' items off a list"
+    return [v for v in item if v]
 
 
 def remove_duplicates_keep_order(seq):
@@ -223,7 +217,7 @@ def hex_to_ansi(hex_color: str):
 
 # New function to apply color formatting to a string
 def color_format_str(
-    s, hex_color="#000000", color_formatting: Optional[Literal["html", "rich", "bash"]] = "rich"
+    s, hex_color="#000000", color_formatting: Literal["html", "rich", "bash"] | None = "rich"
 ):
     if hex_color == "#000000":
         return s
@@ -244,12 +238,12 @@ def unique_elements(iterable: Iterable):
 
 def insert_invisible_spaces_for_wordwrap(s: str, max_word_length: int = 20) -> str:
     """
-    Insert zero-width spaces (\u200B) into any word in `s` that exceeds max_word_length,
+    Insert zero-width spaces (\u200b) into any word in `s` that exceeds max_word_length,
     so that it can be wrapped by browsers or text renderers.
 
     :param s: Input string.
-    :param max_word_length: Maximum allowed length of a continuous word before inserting \u200B.
-    :return: Modified string with \u200B inserted into long words.
+    :param max_word_length: Maximum allowed length of a continuous word before inserting \u200b.
+    :return: Modified string with \u200b inserted into long words.
     """
     words = s.split(" ")
     processed = []
@@ -262,6 +256,6 @@ def insert_invisible_spaces_for_wordwrap(s: str, max_word_length: int = 20) -> s
             # Break the word into chunks of max_word_length
             parts = [word[i : i + max_word_length] for i in range(0, len(word), max_word_length)]
             # Rejoin with zero-width spaces between chunks
-            processed.append("\u200B".join(parts))
+            processed.append("\u200b".join(parts))
 
     return " ".join(processed)

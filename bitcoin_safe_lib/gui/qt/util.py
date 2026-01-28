@@ -29,7 +29,6 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Union
 
 from PyQt6.QtCore import QByteArray
 from PyQt6.QtGui import QColor, QPalette
@@ -71,7 +70,7 @@ def adjust_brightness(color: QColor, value: float) -> QColor:
         raise ValueError("The value must be between -1.0 and 1.0.")
 
     # Get the current RGB values
-    r, g, b, a = color.red(), color.green(), color.blue(), color.alpha()
+    _r, _, _, a = color.red(), color.green(), color.blue(), color.alpha()
 
     # Convert RGB to HSV (Hue, Saturation, Value)
     hsv_color = color.toHsv()
@@ -88,7 +87,7 @@ def adjust_brightness(color: QColor, value: float) -> QColor:
 
 
 def age(
-    from_date: Union[int, float, None, timedelta],  # POSIX timestamp
+    from_date: int | float | None | timedelta,  # POSIX timestamp
     *,
     since_date: datetime | None = None,
     target_tz=None,
@@ -187,10 +186,10 @@ def str_to_qbytearray(s: str) -> QByteArray:
 def question_dialog(
     text: str = "",
     title: str = "Question",
-    true_button: Union[QMessageBox.StandardButton, QPushButton, str] = QMessageBox.StandardButton.Yes,
-    false_button: Union[QMessageBox.StandardButton, QPushButton, str] = QMessageBox.StandardButton.Cancel,
+    true_button: QMessageBox.StandardButton | QPushButton | str = QMessageBox.StandardButton.Yes,
+    false_button: QMessageBox.StandardButton | QPushButton | str = QMessageBox.StandardButton.Cancel,
     default_is_true_button: bool = True,
-) -> Optional[bool]:
+) -> bool | None:
     msg = QMessageBox()
     msg.setWindowTitle(title)
     msg.setText(text)
@@ -200,7 +199,7 @@ def question_dialog(
     button_map: dict[QAbstractButton | None, bool] = {}
 
     def _add(
-        btn_def: Union[QMessageBox.StandardButton, QPushButton, str], role: QMessageBox.ButtonRole
+        btn_def: QMessageBox.StandardButton | QPushButton | str, role: QMessageBox.ButtonRole
     ) -> QPushButton | None:
         # 1) If user passed a str, make a QPushButton
         btn: QPushButton | None = None

@@ -52,14 +52,15 @@
 
 
 import logging
-from typing import Iterable, SupportsBytes, SupportsIndex, Union
+from collections.abc import Iterable
+from typing import SupportsBytes, SupportsIndex
 
 import bdkpython as bdk
 
 logger = logging.getLogger(__name__)
 
 
-def serialized_to_hex(serialized: Union[Iterable[SupportsIndex], SupportsIndex, SupportsBytes]):
+def serialized_to_hex(serialized: Iterable[SupportsIndex] | SupportsIndex | SupportsBytes):
     return bytes(serialized).hex()
 
 

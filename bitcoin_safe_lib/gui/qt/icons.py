@@ -28,9 +28,10 @@
 
 import csv
 import gzip
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import TypeAlias
 
 from PyQt6.QtCore import QByteArray, QRectF, Qt
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPixmap
@@ -38,6 +39,9 @@ from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication
 
 from .util import is_dark_mode
+
+Size: TypeAlias = tuple[int, int]  # noqa: UP040
+ReplaceTuples: TypeAlias = tuple[tuple[str, str], ...] | None  # noqa: UP040
 
 
 class SvgTools:
@@ -53,16 +57,16 @@ class SvgTools:
                 return file.read()
         else:
             # Open the file normally
-            with open(svg_path, "r", encoding="utf-8") as file:
+            with open(svg_path, encoding="utf-8") as file:
                 return file.read()
 
     def auto_theme_svg(self, svg_content: str, color: QColor | None = None) -> str:
         csv_rows = []
         if self.theme_file:
-            with open(self.theme_file, "r") as file:
+            with open(self.theme_file) as file:
                 csv_reader = csv.reader(file)
                 all_rows = [row for row in csv_reader if row]
-                header, csv_rows = all_rows[0], all_rows[1:]
+                csv_rows = all_rows[1:]
 
         replace_strings = csv_rows
 
@@ -115,9 +119,9 @@ class SvgTools:
 
     def get_svg_content(
         self,
-        icon_basename: Optional[str],
+        icon_basename: str | None,
         auto_theme: bool = True,
-        replace_tuples: Optional[Tuple[Tuple[str, str], ...]] = None,
+        replace_tuples: tuple[tuple[str, str], ...] | None = None,
     ) -> str:
         if not icon_basename:
             return ""
@@ -136,28 +140,26 @@ class SvgTools:
         else:
             return ""
 
-    @lru_cache(maxsize=1000)
     def get_QIcon(
         self,
-        icon_basename: Optional[str],
+        icon_basename: str | None,
         auto_theme: bool = True,
-        size: Tuple[int, int] = (256, 256),
-        replace_tuples: Optional[Tuple[Tuple[str, str], ...]] = None,
+        size: Size = (256, 256),
+        replace_tuples: ReplaceTuples = None,
     ) -> QIcon:
         svg_content = self.get_svg_content(
             icon_basename=icon_basename, auto_theme=auto_theme, replace_tuples=replace_tuples
         )
         if not svg_content:
             return QIcon()
-        return self.svg_to_icon(svg_content, size=size)
+        return self._icon_from_svg(svg_content, size)
 
-    @lru_cache(maxsize=1000)
     def get_pixmap(
         self,
-        icon_basename: Optional[str],
+        icon_basename: str | None,
         auto_theme: bool = True,
-        size: Tuple[int, int] = (256, 256),
-        replace_tuples: Optional[Tuple[Tuple[str, str], ...]] = None,
+        size: Size = (256, 256),
+        replace_tuples: ReplaceTuples = None,
     ) -> QPixmap:
         svg_content = self.get_svg_content(
             icon_basename=icon_basename, auto_theme=auto_theme, replace_tuples=replace_tuples
@@ -165,4 +167,14 @@ class SvgTools:
         if not svg_content:
             return QPixmap()
 
-        return self.svg_to_pixmap(svg_content, size=size)
+        return self._pixmap_from_svg(svg_content, size)
+
+    @staticmethod
+    @lru_cache(maxsize=1000)
+    def _icon_from_svg(svg_content: str, size: Size) -> QIcon:
+        return SvgTools.svg_to_icon(svg_content, size=size)
+
+    @staticmethod
+    @lru_cache(maxsize=1000)
+    def _pixmap_from_svg(svg_content: str, size: Size) -> QPixmap:
+        return SvgTools.svg_to_pixmap(svg_content, size=size)

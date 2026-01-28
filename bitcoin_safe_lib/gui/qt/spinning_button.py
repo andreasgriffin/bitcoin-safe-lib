@@ -30,7 +30,6 @@
 import os
 import sys
 from functools import partial
-from typing import Optional
 
 from PyQt6.QtCore import QByteArray, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap
@@ -74,7 +73,7 @@ class SpinningButton(QPushButton):
     def __init__(
         self,
         text: str,
-        signal_stop_spinning: Optional[SignalProtocol] = None,
+        signal_stop_spinning: SignalProtocol | None = None,
         enabled_icon: QIcon = DEFAULT_ENABLED_ICON,
         spinning_svg_content: str | None = None,
         parent=None,
