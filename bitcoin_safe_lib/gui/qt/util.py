@@ -30,9 +30,14 @@
 import logging
 from datetime import datetime, timedelta
 
-from PyQt6.QtCore import QByteArray
-from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QAbstractButton, QApplication, QMessageBox, QPushButton
+from PyQt6.QtCore import QByteArray, Qt
+from PyQt6.QtGui import QCloseEvent, QColor, QKeyEvent, QPalette
+from PyQt6.QtWidgets import (
+    QAbstractButton,
+    QApplication,
+    QMessageBox,
+    QPushButton,
+)
 
 from .i18n import translate
 
@@ -183,26 +188,49 @@ def str_to_qbytearray(s: str) -> QByteArray:
     return QByteArray(s.encode())  # type: ignore[call-overload]
 
 
+class _QuestionBox(QMessageBox):
+    closed_without_click: bool
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed_without_click = False
+
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
+        self.closed_without_click = True
+        super().closeEvent(a0)
+
+    def keyPressEvent(self, a0: QKeyEvent | None) -> None:
+        if a0 and a0.key() == Qt.Key.Key_Escape:
+            self.closed_without_click = True
+            self.reject()
+            return
+        super().keyPressEvent(a0)
+
+
+ButtonDef = QMessageBox.StandardButton | QPushButton | str
+
+
 def question_dialog(
     text: str = "",
     title: str = "Question",
-    true_button: QMessageBox.StandardButton | QPushButton | str = QMessageBox.StandardButton.Yes,
-    false_button: QMessageBox.StandardButton | QPushButton | str = QMessageBox.StandardButton.Cancel,
+    true_button: ButtonDef = QMessageBox.StandardButton.Yes,
+    false_button: ButtonDef = QMessageBox.StandardButton.Cancel,
     default_is_true_button: bool = True,
 ) -> bool | None:
-    msg = QMessageBox()
+    msg: _QuestionBox = _QuestionBox()
     msg.setWindowTitle(title)
     msg.setText(text)
     msg.setIcon(QMessageBox.Icon.Question)
 
-    # map the actual QPushButton instance back to True/False
     button_map: dict[QAbstractButton | None, bool] = {}
 
     def _add(
-        btn_def: QMessageBox.StandardButton | QPushButton | str, role: QMessageBox.ButtonRole
+        btn_def: ButtonDef,
+        role: QMessageBox.ButtonRole,
     ) -> QPushButton | None:
-        # 1) If user passed a str, make a QPushButton
         btn: QPushButton | None = None
+
+        # 1) If user passed a str, make a QPushButton
         if isinstance(btn_def, str):
             btn = QPushButton(btn_def)
             msg.addButton(btn, role)
@@ -230,7 +258,8 @@ def question_dialog(
 
     # run the dialog
     msg.exec()
-    clicked = msg.clickedButton()
 
-    # translate back to True/False/None
-    return button_map.get(clicked, None)
+    if msg.closed_without_click:
+        return None
+
+    return button_map.get(msg.clickedButton(), None)
