@@ -33,7 +33,7 @@ import re
 import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
+from functools import cache, wraps
 from pathlib import Path
 from typing import (
     Any,
@@ -42,6 +42,7 @@ from typing import (
 )
 
 import numpy as np
+from packaging.version import Version
 
 logger = logging.getLogger(__name__)
 
@@ -259,3 +260,9 @@ def insert_invisible_spaces_for_wordwrap(s: str, max_word_length: int = 20) -> s
             processed.append("\u200b".join(parts))
 
     return " ".join(processed)
+
+
+@cache
+def fast_version(s: str) -> Version:
+    """Fast version."""
+    return Version(s)
