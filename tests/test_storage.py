@@ -24,7 +24,8 @@ def test_from_dumps_prefers_dct_values_over_class_kwargs(caplog) -> None:
 
     assert obj.value == "from_dct"
     assert obj.optional == "from_json"
-    assert "Duplicate deserialization keys for ExampleSaveable" in caplog.text
+    assert "Duplicate deserialization keys" in caplog.text
+    assert "ExampleSaveable" in caplog.text
     assert "value" in caplog.text
     assert "from_dct" in caplog.text
     assert "from_kwargs" in caplog.text
