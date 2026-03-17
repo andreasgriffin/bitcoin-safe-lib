@@ -5,7 +5,7 @@ line-length = 110
 
 [tool.poetry]
 name = "bitcoin-safe-lib"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["andreasgriffin <andreasgriffin@proton.me>"]
 license = "GPL-3.0"
 readme = "README.md"
@@ -52,5 +52,4 @@ known-first-party = ["bitcoin_safe_lib"]
 
 [tool.ruff.format]
 # Ruff formatter is Black-compatible; keep defaults or tweak here.
-
 

@@ -41,7 +41,7 @@ from base64 import urlsafe_b64decode as b64d
 from base64 import urlsafe_b64encode as b64e
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Protocol, Self, TypeVar
+from typing import Any, TypeAlias, TypeGuard, TypeVar
 
 import bdkpython as bdk
 from cryptography.fernet import Fernet
@@ -53,7 +53,13 @@ from bitcoin_safe_lib.util import time_logger
 
 from .util import fast_version
 
-T = TypeVar("T")
+T = TypeVar("T", bound="BaseSaveableClass")
+ClassArgs: TypeAlias = dict[str, Any]  # noqa: UP040
+ClassKwargs: TypeAlias = dict[str, ClassArgs]  # noqa: UP040
+SaveableClass: TypeAlias = type["BaseSaveableClass"]  # noqa: UP040
+EnumClass: TypeAlias = type[enum.Enum]  # noqa: UP040
+KnownClass: TypeAlias = SaveableClass | EnumClass  # noqa: UP040
+KnownClasses: TypeAlias = dict[str, KnownClass]  # noqa: UP040
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +74,7 @@ def filtered_dict(d: dict, allowed_keys: Iterable[str]) -> dict:
     return {k: v for k, v in d.items() if k in allowed_keys}
 
 
-class SupportsInit(Protocol):
-    def __init__(self, *args, **kwargs: Any) -> None: ...
-
-
-def filtered_for_init(d: dict, cls: type[SupportsInit]) -> dict:
+def filtered_for_init(d: dict, cls: type[Any]) -> dict:
     """Filtered for init."""
     return filtered_dict(d, varnames(cls.__init__))
 
@@ -162,22 +164,42 @@ class Storage:
 
 
 class ClassSerializer:
+    @staticmethod
+    def _is_saveable_class(obj_cls: KnownClass) -> TypeGuard[SaveableClass]:
+        return issubclass(obj_cls, BaseSaveableClass)
+
+    @staticmethod
+    def _is_enum_class(obj_cls: KnownClass) -> TypeGuard[EnumClass]:
+        return issubclass(obj_cls, enum.Enum)
+
+    @staticmethod
+    def _merge_class_kwargs(dct: dict[str, Any], cls_string: str, extra_kwargs: ClassArgs) -> dict[str, Any]:
+        duplicate_keys = sorted(set(dct).intersection(extra_kwargs))
+        if duplicate_keys:
+            logger.error(
+                f"Duplicate deserialization keys for {cls_string=}; keeping values from dct. {duplicate_keys=}"
+            )
+
+        merged_dct = extra_kwargs.copy()
+        merged_dct.update(dct)
+        return merged_dct
+
     @classmethod
-    def general_deserializer(cls, known_classes, class_kwargs) -> Callable:
+    def general_deserializer(
+        cls, known_classes: KnownClasses, class_kwargs: ClassKwargs
+    ) -> Callable[[dict[str, Any]], Any]:
         """General deserializer."""
 
-        def deserializer(dct: dict) -> dict:
+        def deserializer(dct: dict[str, Any]) -> Any:
             """Deserializer."""
             cls_string = dct.get("__class__")  # e.g. KeyStore
             if cls_string:
                 if cls_string in known_classes:
                     obj_cls = known_classes.get(cls_string)
-                    if hasattr(obj_cls, "from_dump"):  # is there KeyStore.from_dump ?
-                        if class_kwargs.get(cls_string):  #  apply additional arguments to the class from_dump
-                            dct.update(class_kwargs.get(cls_string))
-                        return obj_cls.from_dump(
-                            dct, class_kwargs=class_kwargs
-                        )  # do: KeyStore.from_dump(**dct)
+                    if obj_cls and cls._is_saveable_class(obj_cls):
+                        if extra_class_kwargs := class_kwargs.get(cls_string):
+                            dct = cls._merge_class_kwargs(dct, cls_string, extra_class_kwargs)
+                        return obj_cls.from_dump(dct, class_kwargs=class_kwargs)
                     else:
                         raise Exception(f"{obj_cls} doesnt have a from_dump classmethod.")
                 else:
@@ -199,8 +221,8 @@ class ClassSerializer:
                     )
             elif dct.get("__enum__"):
                 obj_cls = known_classes.get(dct["name"])
-                if obj_cls and hasattr(obj_cls, dct["value"]):
-                    return getattr(obj_cls, dct["value"])
+                if obj_cls and cls._is_enum_class(obj_cls) and dct["value"] in obj_cls.__members__:
+                    return obj_cls[dct["value"]]
                 else:
                     logger.exception(f"Could not deserialize {obj_cls}({dct.get('value')}).")
 
@@ -222,12 +244,12 @@ class ClassSerializer:
 
 
 class BaseSaveableClass:
-    known_classes: dict[str, Any] = {"Network": bdk.Network}
+    known_classes: KnownClasses = {"Network": bdk.Network}
     VERSION = "0.0.0"
     _version_from_dump: str | None = None
 
     @staticmethod
-    def cls_kwargs(*args, **kwargs):
+    def cls_kwargs(*args, **kwargs) -> ClassArgs:
         return {}
 
     @abstractmethod
@@ -254,7 +276,7 @@ class BaseSaveableClass:
         return dct
 
     @classmethod
-    def _from_dump(cls, dct: dict[str, Any], class_kwargs: dict | None = None):
+    def _from_dump(cls, dct: dict[str, Any], class_kwargs: ClassArgs | None = None):
         """From dump."""
         assert dct.get("__class__") == cls.__name__
         del dct["__class__"]
@@ -273,11 +295,11 @@ class BaseSaveableClass:
 
     @classmethod
     @abstractmethod
-    def from_dump(cls: type[SupportsInit], dct: dict[str, Any], class_kwargs: dict | None = None):
+    def from_dump(cls, dct: dict[str, Any], class_kwargs: ClassKwargs | None = None):
         """From dump."""
         raise NotImplementedError()
 
-    def clone(self, class_kwargs: dict | None = None) -> Self:
+    def clone(self: T, class_kwargs: ClassKwargs | None = None) -> T:
         """Clone."""
         return self._from_dumps(self.dumps(), class_kwargs=class_kwargs)
 
@@ -314,7 +336,7 @@ class BaseSaveableClass:
         return self.dumps_object(self, indent=indent)
 
     @staticmethod
-    def _flatten_known_classes(known_classes: dict[str, Any]) -> dict[str, Any]:
+    def _flatten_known_classes(known_classes: KnownClasses) -> KnownClasses:
         "Recursively extends the dict to includes all known_classes of known_classes"
         known_classes = known_classes.copy()
         for known_class in list(known_classes.values()):
@@ -323,13 +345,13 @@ class BaseSaveableClass:
         return known_classes
 
     @classmethod
-    def get_known_classes(cls) -> dict[str, Any]:
+    def get_known_classes(cls) -> KnownClasses:
         "Gets a flattened list of known classes that a json deserializer needs to interpet all objects"
         return BaseSaveableClass._flatten_known_classes({cls.__name__: cls})
 
     @classmethod
     @time_logger
-    def _from_dumps(cls, json_string: str, class_kwargs: dict | None = None):
+    def _from_dumps(cls, json_string: str, class_kwargs: ClassKwargs | None = None):
         return json.loads(
             json_string,
             object_hook=ClassSerializer.general_deserializer(
@@ -339,7 +361,7 @@ class BaseSaveableClass:
 
     @classmethod
     @time_logger
-    def _from_file(cls, filename: str, password: str | None = None, class_kwargs: dict | None = None):
+    def _from_file(cls, filename: str, password: str | None = None, class_kwargs: ClassKwargs | None = None):
         """Loads the class from a file. This offers the option of add class_kwargs args.
 
         Args:
@@ -371,7 +393,7 @@ class SaveAllClass(BaseSaveableClass):
         return d
 
     @classmethod
-    def from_dump(cls, dct: dict, class_kwargs: dict | None = None):
+    def from_dump(cls, dct: dict, class_kwargs: ClassKwargs | None = None):
         """From dump."""
         super()._from_dump(dct, class_kwargs=class_kwargs)
         return cls(**filtered_for_init(dct, cls))
