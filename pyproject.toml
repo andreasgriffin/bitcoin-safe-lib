@@ -52,4 +52,3 @@ known-first-party = ["bitcoin_safe_lib"]
 
 [tool.ruff.format]
 # Ruff formatter is Black-compatible; keep defaults or tweak here.
-

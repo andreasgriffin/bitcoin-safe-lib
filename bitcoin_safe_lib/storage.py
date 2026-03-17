@@ -41,7 +41,7 @@ from base64 import urlsafe_b64decode as b64d
 from base64 import urlsafe_b64encode as b64e
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, TypeAlias, TypeGuard, TypeVar
+from typing import Any, ClassVar, Protocol, TypeAlias, TypeGuard, TypeVar
 
 import bdkpython as bdk
 from cryptography.fernet import Fernet
@@ -56,10 +56,15 @@ from .util import fast_version
 T = TypeVar("T", bound="BaseSaveableClass")
 ClassArgs: TypeAlias = dict[str, Any]  # noqa: UP040
 ClassKwargs: TypeAlias = dict[str, ClassArgs]  # noqa: UP040
-SaveableClass: TypeAlias = type["BaseSaveableClass"]  # noqa: UP040
-EnumClass: TypeAlias = type[enum.Enum]  # noqa: UP040
-KnownClass: TypeAlias = SaveableClass | EnumClass  # noqa: UP040
-KnownClasses: TypeAlias = dict[str, KnownClass]  # noqa: UP040
+KnownClasses: TypeAlias = dict[str, type[Any]]  # noqa: UP040
+
+
+class SupportsFromDumpClass(Protocol):
+    known_classes: ClassVar[KnownClasses]
+
+    @classmethod
+    def from_dump(cls, dct: dict[str, Any], class_kwargs: ClassKwargs | None = None) -> Any: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -165,11 +170,11 @@ class Storage:
 
 class ClassSerializer:
     @staticmethod
-    def _is_saveable_class(obj_cls: KnownClass) -> TypeGuard[SaveableClass]:
+    def _is_saveable_class(obj_cls: type[Any]) -> TypeGuard[type[SupportsFromDumpClass]]:
         return issubclass(obj_cls, BaseSaveableClass)
 
     @staticmethod
-    def _is_enum_class(obj_cls: KnownClass) -> TypeGuard[EnumClass]:
+    def _is_enum_class(obj_cls: type[Any]) -> TypeGuard[type[enum.Enum]]:
         return issubclass(obj_cls, enum.Enum)
 
     @staticmethod
