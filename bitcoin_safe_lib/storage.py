@@ -41,7 +41,7 @@ from base64 import urlsafe_b64decode as b64d
 from base64 import urlsafe_b64encode as b64e
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Self, TypeAlias, TypeGuard, TypeVar
+from typing import Any, TypeAlias, TypeGuard, TypeVar
 
 import bdkpython as bdk
 from cryptography.fernet import Fernet
@@ -53,7 +53,7 @@ from bitcoin_safe_lib.util import time_logger
 
 from .util import fast_version
 
-T = TypeVar("T")
+T = TypeVar("T", bound="BaseSaveableClass")
 ClassArgs: TypeAlias = dict[str, Any]  # noqa: UP040
 ClassKwargs: TypeAlias = dict[str, ClassArgs]  # noqa: UP040
 SaveableClass: TypeAlias = type["BaseSaveableClass"]  # noqa: UP040
@@ -299,7 +299,7 @@ class BaseSaveableClass:
         """From dump."""
         raise NotImplementedError()
 
-    def clone(self, class_kwargs: ClassKwargs | None = None) -> Self:
+    def clone(self: T, class_kwargs: ClassKwargs | None = None) -> T:
         """Clone."""
         return self._from_dumps(self.dumps(), class_kwargs=class_kwargs)
 
