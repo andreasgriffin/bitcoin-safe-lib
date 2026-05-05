@@ -31,8 +31,9 @@ import os
 import sys
 from functools import partial
 
-from PyQt6.QtCore import QByteArray, QRectF, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon, QPainter, QPixmap
+from PyQt6 import sip
+from PyQt6.QtCore import QByteArray, QEvent, QRectF, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QCloseEvent, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
@@ -88,6 +89,8 @@ class SpinningButton(QPushButton):
         spinning_svg_content = (
             svg_tools or SvgTools(get_icon_path=partial(resource_path, "icons"), theme_file=None)
         ).auto_theme_svg(spinning_svg_content if spinning_svg_content else DEFAULT_SPINNER_SVG)
+        if spinning_svg_content is None:
+            raise ValueError("Invalid SVG content provided")
         self.svg_renderer = QSvgRenderer(QByteArray(spinning_svg_content.encode("utf-8")))
 
         if not self.svg_renderer.isValid():
@@ -117,8 +120,31 @@ class SpinningButton(QPushButton):
         if signal_stop_spinning is not None:
             self.set_enable_signal(signal_stop_spinning)
 
+    def _is_deleted(self) -> bool:
+        try:
+            return sip.isdeleted(self)
+        except RuntimeError:
+            return True
+
+    def _cleanup_before_deletion(self) -> None:
+        self._spinning = False
+
+        if self._stop_signal:
+            self._disconnect_signal(self._stop_signal, self.enable_button)
+            self._stop_signal = None
+
+        for timer in (self.timer, self.timeout_timer):
+            try:
+                if timer.isActive():
+                    timer.stop()
+            except RuntimeError:
+                continue
+
     def start_spin(self) -> None:
         """Idempotent: safe to call multiple times."""
+        if self._is_deleted():
+            return
+
         if self._spinning:
             if not self.timer.isActive():
                 self.timer.start()
@@ -147,6 +173,9 @@ class SpinningButton(QPushButton):
 
     def enable_button(self, *args, **kwargs) -> None:
         """Idempotent: safe to call multiple times."""
+        if self._is_deleted():
+            return
+
         if self.timer.isActive():
             self.timer.stop()
         if self.timeout_timer.isActive():
@@ -155,15 +184,24 @@ class SpinningButton(QPushButton):
         was_spinning = self._spinning
         self._spinning = False
 
-        self.setIcon(self.enabled_icon)
+        try:
+            self.setIcon(self.enabled_icon)
+        except RuntimeError:
+            return
 
         # If we disabled during spinning, re-enable
-        if self.disable_while_spinning and not self.isEnabled():
-            self.setEnabled(True)
+        try:
+            if self.disable_while_spinning and not self.isEnabled():
+                self.setEnabled(True)
+        except RuntimeError:
+            return
 
         if was_spinning:
-            self.signal_stopped_spinning.emit()
-            self.update()
+            try:
+                self.signal_stopped_spinning.emit()
+                self.update()
+            except RuntimeError:
+                return
 
     def _disconnect_signal(self, signal: SignalProtocol, slot) -> None:
         """
@@ -196,18 +234,33 @@ class SpinningButton(QPushButton):
             self._stop_signal = None
 
     def on_clicked(self) -> None:
-        if not self.isEnabled():
+        if self._is_deleted() or not self.isEnabled():
             return
         self.start_spin()
 
     def rotate_svg(self) -> None:
+        if self._is_deleted():
+            return
+
         if not self._spinning:
             if self.timer.isActive():
                 self.timer.stop()
             return
 
         self.rotation_angle = (self.rotation_angle + 10) % 360
-        self.setIcon(self._spinner_icon(self.rotation_angle))
+        try:
+            self.setIcon(self._spinner_icon(self.rotation_angle))
+        except RuntimeError:
+            self._cleanup_before_deletion()
+
+    def closeEvent(self, event: QCloseEvent | None) -> None:
+        self._cleanup_before_deletion()
+        super().closeEvent(event)
+
+    def event(self, event: QEvent | None) -> bool:
+        if event and event.type() == QEvent.Type.DeferredDelete:
+            self._cleanup_before_deletion()
+        return super().event(event)
 
     def _spinner_icon(self, angle: float) -> QIcon:
         size = self.iconSize()
