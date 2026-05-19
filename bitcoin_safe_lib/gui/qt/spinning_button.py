@@ -253,14 +253,14 @@ class SpinningButton(QPushButton):
         except RuntimeError:
             self._cleanup_before_deletion()
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
         self._cleanup_before_deletion()
-        super().closeEvent(event)
+        super().closeEvent(a0)
 
-    def event(self, event: QEvent | None) -> bool:
-        if event and event.type() == QEvent.Type.DeferredDelete:
+    def event(self, e: QEvent | None) -> bool:
+        if e and e.type() == QEvent.Type.DeferredDelete:
             self._cleanup_before_deletion()
-        return super().event(event)
+        return super().event(e)
 
     def _spinner_icon(self, angle: float) -> QIcon:
         size = self.iconSize()
