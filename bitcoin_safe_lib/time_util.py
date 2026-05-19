@@ -1,35 +1,7 @@
-#
-# Bitcoin Safe
-# Copyright (C) 2024 Andreas Griffin
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of version 3 of the GNU General Public License as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 
 from bitcoin_safe_lib.gui.qt.i18n import translate
@@ -62,21 +34,24 @@ class AgeDistance:
 
 
 def age(
-    target: datetime,
-    relative_to: datetime | None = None,
+    target: datetime | timedelta,
+    *,
     style: AgeStyle = AgeStyle.RELATIVE,
     include_seconds: bool = False,
 ) -> str:
-    """Return a localized, human-readable approximate age for `target`.
+    """Return a localized, human-readable approximate age.
 
     Args:
         target:
-            The datetime to describe.
+            Either:
 
-        relative_to:
-            The datetime to compare against. Defaults to now.
-            If omitted, uses datetime.now(target.tzinfo), so aware datetimes
-            are compared against an aware "now" in the same timezone.
+            - datetime:
+                A moment to describe relative to now.
+
+            - timedelta:
+                A direct duration to describe.
+                Negative timedeltas are rendered as past.
+                Positive timedeltas are rendered as future.
 
         style:
             AgeStyle.RELATIVE:
@@ -88,20 +63,8 @@ def age(
 
         include_seconds:
             Whether values under one minute should be rendered as seconds.
-
-    Examples:
-        age(created_at)
-        age(expires_at)
-        age(created_at, style=AgeStyle.PLAIN)
-        age(created_at, include_seconds=True)
-        age(created_at, relative_to=some_other_datetime)
     """
-    if relative_to is None:
-        relative_to = datetime.now(target.tzinfo)
-
-    _validate_datetime_pair(target, relative_to)
-
-    delta = target - relative_to
+    delta = _target_to_delta(target)
     direction = AgeDirection.PAST if delta.total_seconds() < 0 else AgeDirection.FUTURE
 
     distance = _seconds_to_age_distance(
@@ -116,12 +79,11 @@ def age(
     )
 
 
-def _validate_datetime_pair(target: datetime, relative_to: datetime) -> None:
-    target_is_aware = target.tzinfo is not None and target.utcoffset() is not None
-    relative_to_is_aware = relative_to.tzinfo is not None and relative_to.utcoffset() is not None
+def _target_to_delta(target: datetime | timedelta) -> timedelta:
+    if isinstance(target, timedelta):
+        return target
 
-    if target_is_aware != relative_to_is_aware:
-        raise ValueError("target and relative_to must both be timezone-aware or both be naive")
+    return target - datetime.now(target.tzinfo)
 
 
 def _seconds_to_age_distance(
