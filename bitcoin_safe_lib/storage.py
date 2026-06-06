@@ -73,6 +73,7 @@ logger = logging.getLogger(__name__)
 
 MIN_ENCRYPTED_PAYLOAD_SIZE = 16 + 4 + 1
 MAX_ENCRYPT_ITERATIONS = 1_000_000
+ASCII_WHITESPACE = b" \t\n\r\f\v"
 
 
 class StorageDecryptError(Exception):
@@ -102,7 +103,7 @@ class Encrypt:
     @classmethod
     def _parse_encrypted_payload(cls, token: bytes) -> tuple[bytes, int, bytes]:
         try:
-            decoded = b64decode(token, altchars=b"-_", validate=True)
+            decoded = b64decode(token.strip(ASCII_WHITESPACE), altchars=b"-_", validate=True)
         except (BinasciiError, ValueError) as e:
             raise cls._invalid_encrypted_payload() from e
 
@@ -182,8 +183,7 @@ class Storage:
         #  - carriage rtn (\r)
         #  - form feed    (\f)
         #  - vertical tab (\v)
-        strip_char = b" \t\n\r\f\v"
-        stripped_token = token.strip(strip_char)
+        stripped_token = token.strip(ASCII_WHITESPACE)
         if stripped_token.startswith(b"{") and stripped_token.endswith(b"}"):
             return False
         return Encrypt.is_encrypted_payload(token)

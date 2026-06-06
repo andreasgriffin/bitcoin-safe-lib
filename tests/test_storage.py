@@ -45,6 +45,16 @@ def test_password_encrypt_decrypt_round_trip() -> None:
     assert encrypt.password_decrypt(token, "pw") == b"secret"
 
 
+@pytest.mark.parametrize("wrapper", [b"  %b  ", b"\t%b\t", b"\n%b\n", b" \t\n%b\n\t "])
+def test_password_decrypt_strips_outer_whitespace(wrapper: bytes) -> None:
+    encrypt = Encrypt()
+    token = encrypt.password_encrypt(b"secret", "pw")
+
+    wrapped_token = wrapper % token
+
+    assert encrypt.password_decrypt(wrapped_token, "pw") == b"secret"
+
+
 @pytest.mark.parametrize(
     ("token", "label"),
     [
@@ -75,11 +85,23 @@ def test_has_password_detects_plaintext_and_encrypted_files(tmp_path) -> None:
     plaintext = tmp_path / "plain.wallet"
     truncated = tmp_path / "truncated.wallet"
     encrypted = tmp_path / "encrypted.wallet"
+    encrypted_with_whitespace = tmp_path / "encrypted_with_whitespace.wallet"
 
     plaintext.write_text('{"foo": 1}')
     truncated.write_bytes(b'{"foo": 1')
-    encrypted.write_bytes(Encrypt().password_encrypt(b"secret", "pw"))
+    encrypted_token = Encrypt().password_encrypt(b"secret", "pw")
+    encrypted.write_bytes(encrypted_token)
+    encrypted_with_whitespace.write_bytes(b" \t\n" + encrypted_token + b"\n\t ")
 
     assert not Storage.has_password(str(plaintext))
     assert not Storage.has_password(str(truncated))
     assert Storage.has_password(str(encrypted))
+    assert Storage.has_password(str(encrypted_with_whitespace))
+
+
+def test_load_decrypts_encrypted_file_wrapped_in_whitespace(tmp_path) -> None:
+    encrypted = tmp_path / "encrypted_with_whitespace.wallet"
+    encrypted_token = Encrypt().password_encrypt(b"secret", "pw")
+    encrypted.write_bytes(b" \t\n" + encrypted_token + b"\n\t ")
+
+    assert Storage().load(str(encrypted), password="pw") == "secret"
