@@ -37,8 +37,10 @@ import os
 # from https://stackoverflow.com/questions/2490334/simple-way-to-encode-a-string-according-to-a-password
 import secrets
 from abc import abstractmethod
+from base64 import b64decode
 from base64 import urlsafe_b64decode as b64d
 from base64 import urlsafe_b64encode as b64e
+from binascii import Error as BinasciiError
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, TypeAlias, TypeGuard, TypeVar
@@ -69,6 +71,15 @@ class SupportsFromDumpClass(Protocol):
 logger = logging.getLogger(__name__)
 
 
+MIN_ENCRYPTED_PAYLOAD_SIZE = 16 + 4 + 1
+MAX_ENCRYPT_ITERATIONS = 1_000_000
+ASCII_WHITESPACE = b" \t\n\r\f\v"
+
+
+class StorageDecryptError(Exception):
+    """Raised when an encrypted storage payload is malformed."""
+
+
 def varnames(method: Callable) -> Iterable[str]:
     """Varnames."""
     return method.__code__.co_varnames[: method.__code__.co_argcount]
@@ -85,6 +96,37 @@ def filtered_for_init(d: dict, cls: type[Any]) -> dict:
 
 
 class Encrypt:
+    @staticmethod
+    def _invalid_encrypted_payload() -> StorageDecryptError:
+        return StorageDecryptError("Invalid encrypted payload")
+
+    @classmethod
+    def _parse_encrypted_payload(cls, token: bytes) -> tuple[bytes, int, bytes]:
+        try:
+            decoded = b64decode(token.strip(ASCII_WHITESPACE), altchars=b"-_", validate=True)
+        except (BinasciiError, ValueError) as e:
+            raise cls._invalid_encrypted_payload() from e
+
+        if len(decoded) < MIN_ENCRYPTED_PAYLOAD_SIZE:
+            raise cls._invalid_encrypted_payload()
+
+        salt = decoded[:16]
+        iteration_bytes = decoded[16:20]
+        encrypted_message = decoded[20:]
+        iterations = int.from_bytes(iteration_bytes, "big")
+        if not 1 <= iterations <= MAX_ENCRYPT_ITERATIONS:
+            raise cls._invalid_encrypted_payload()
+
+        return salt, iterations, b64e(encrypted_message)
+
+    @classmethod
+    def is_encrypted_payload(cls, token: bytes) -> bool:
+        try:
+            cls._parse_encrypted_payload(token)
+        except StorageDecryptError:
+            return False
+        return True
+
     def _derive_key(self, password: bytes, salt: bytes, iterations: int) -> bytes:
         """Derive a secret key from a given password and salt."""
         kdf = PBKDF2HMAC(
@@ -111,11 +153,7 @@ class Encrypt:
 
     def password_decrypt(self, token: bytes, password: str) -> bytes:
         """Password decrypt."""
-        decoded = b64d(token)
-        salt, iter, token = decoded[:16], decoded[16:20], b64e(decoded[20:])
-        iterations = int.from_bytes(iter, "big")
-        if iterations > 1e6:
-            raise Exception("Error in decrypting")
+        salt, iterations, token = self._parse_encrypted_payload(token)
         key = self._derive_key(password.encode(), salt, iterations)
         return Fernet(key).decrypt(token)
 
@@ -145,15 +183,10 @@ class Storage:
         #  - carriage rtn (\r)
         #  - form feed    (\f)
         #  - vertical tab (\v)
-        strip_char = b" \t\n\r\f\v"
-        try:
-            if token.lstrip(strip_char).startswith(b"{") and token.rstrip(strip_char).endswith(b"}"):
-                return False
-        except Exception as e:
-            logger.exception(str(e))
-            return True
-
-        return True
+        stripped_token = token.strip(ASCII_WHITESPACE)
+        if stripped_token.startswith(b"{") and stripped_token.endswith(b"}"):
+            return False
+        return Encrypt.is_encrypted_payload(token)
 
     def load(self, filename: str, password: str | None = None) -> str:
         """Load."""
