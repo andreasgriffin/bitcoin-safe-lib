@@ -154,6 +154,7 @@ class LoopInThread:
 
         bucket, lock = self._get_bucket(key)
         cancel_list: list[Future[Any]] = []
+        cleanup_callback = None
 
         with lock:
             if multiple_strategy is MultipleStrategy.REJECT_NEW_TASK:
@@ -198,7 +199,10 @@ class LoopInThread:
                             self._key_tasks.pop(key, None)
                             self._locks.pop(key, None)
 
-            fut.add_done_callback(cleanup)
+            cleanup_callback = cleanup
+
+        if cleanup_callback is not None:
+            fut.add_done_callback(cleanup_callback)
 
         # cancel old tasks outside the lock to avoid deadlock
         for old in cancel_list:
