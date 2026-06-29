@@ -13,7 +13,7 @@ description = "Python tools and library"
 homepage = "https://github.com/andreasgriffin"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.10,<4"
 numpy = "2.2.1" # error in wine/pyinstaller when increased
 pyqt6 = "^6.9.0"
 bdkpython ="^2.0.0"
