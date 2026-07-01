@@ -18,6 +18,7 @@ numpy = "2.2.1" # error in wine/pyinstaller when increased
 pyqt6 = "^6.9.0"
 bdkpython ="^2.0.0"
 cryptography = ">=46.0.5"
+packaging = "^26.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
