@@ -41,6 +41,7 @@ from typing import (
     TypeVar,
 )
 
+import bdkpython as bdk
 import numpy as np
 from packaging.version import Version
 
@@ -266,3 +267,7 @@ def insert_invisible_spaces_for_wordwrap(s: str, max_word_length: int = 20) -> s
 def fast_version(s: str) -> Version:
     """Fast version."""
     return Version(s)
+
+
+def network_kind(network: bdk.Network) -> bdk.NetworkKind:
+    return bdk.NetworkKind.MAIN if network == bdk.Network.BITCOIN else bdk.NetworkKind.TEST
