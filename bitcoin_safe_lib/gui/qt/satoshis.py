@@ -29,6 +29,7 @@
 
 import enum
 import logging
+import math
 from typing import Literal, Union
 
 import bdkpython as bdk
@@ -64,6 +65,80 @@ def unit_sat_str(network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value) ->
 def unit_fee_str(network: bdk.Network, sat_symbol: str = SatSymbol.Sat.value) -> str:
     "Sat/vB"
     return f"{sat_symbol}/vB" if network is None or network == bdk.Network.BITCOIN else f"t{sat_symbol}/vB"
+
+
+SATOSHIS_PER_BTC = 1e8
+
+
+def _reads_as_grouping(cleaned: str, separator: str, locale: QLocale) -> bool:
+    """Whether a single separator in an amount like "1.000" plausibly groups digits.
+
+    A group separator never directly follows a leading zero (as in "0.001"), and
+    proper grouping starts with at most 3 digits before the first separator.
+    """
+    integer_part, _, fraction_part = cleaned.partition(separator)
+    return (
+        separator == locale.groupSeparator()
+        and 1 <= len(integer_part) <= 3
+        and len(fraction_part) == 3
+        and not all(character == "0" for character in integer_part)
+    )
+
+
+def parse_btc_str_to_sats(text: str, network: bdk.Network, btc_symbol: str) -> int:
+    """Parse free-form amount text like "1,234.56 BTC" into satoshis.
+
+    The system locale's notation is understood, and so is the "foreign" one: a
+    separator directly following a leading zero (as in "0.001") can never be a
+    group separator, so pasting "0.001" into a German locale reads as 0.001 BTC
+    instead of 1 BTC.  Genuinely ambiguous amounts (like "1.000" in a German
+    locale) are read the way the locale itself writes them.
+
+    Raises ValueError for unparseable text instead of silently reading it as 0.
+    """
+    locale = QLocale()
+    cleaned = "".join(str(text).replace(unit_str(network, btc_symbol=btc_symbol), "").split())
+    if not cleaned:
+        return 0
+
+    sign = ""
+    if cleaned[0] in ("+", "-"):
+        sign, cleaned = cleaned[0], cleaned[1:]
+
+    if locale.groupSeparator() not in (".", ","):
+        # separators like "'" or (non-breaking) spaces can only mean digit grouping
+        cleaned = cleaned.replace(locale.groupSeparator(), "")
+
+    dot_count = cleaned.count(".")
+    comma_count = cleaned.count(",")
+    if not dot_count and not comma_count:
+        # plain digits, or the locale's own decimal point if it is exotic (like "٫")
+        cleaned = cleaned.replace(locale.decimalPoint(), ".")
+    elif dot_count and comma_count:
+        # "1,234.56" and "1.234,56": the rightmost separator is the decimal point
+        group_separator = "," if cleaned.rfind(".") > cleaned.rfind(",") else "."
+        decimal_separator = "," if group_separator == "." else "."
+        cleaned = cleaned.replace(group_separator, "").replace(decimal_separator, ".")
+    else:
+        separator = "." if dot_count else ","
+        parts = cleaned.split(separator)
+        reads_as_grouping = len(parts) > 2 or _reads_as_grouping(cleaned, separator, locale)
+        if reads_as_grouping:
+            if separator == locale.decimalPoint():
+                raise ValueError(f"Cannot parse {text!r} as a BTC amount")
+            if not parts[0] or not all(len(part) == 3 for part in parts[1:]):
+                raise ValueError(f"Cannot parse {text!r} as a BTC amount")
+            cleaned = "".join(parts)
+        else:
+            cleaned = cleaned.replace(separator, ".")
+
+    if cleaned.count(".") > 1 or not cleaned.replace(".", "").isdecimal():
+        raise ValueError(f"Cannot parse {text!r} as a BTC amount")
+
+    sats = float(sign + cleaned) * SATOSHIS_PER_BTC
+    if not math.isfinite(sats):
+        raise ValueError(f"Cannot parse {text!r} as a BTC amount")
+    return int(round(sats))
 
 
 def format_fee_rate_splitted(
@@ -143,14 +218,10 @@ class Satoshis:
         self.value = value.to_sat() if isinstance(value, bdk.Amount) else value
 
     @classmethod
-    def from_btc_str(cls, s: str, network: bdk.Network, btc_symbol: str = BitcoinSymbol.ISO.value):
-        f = (
-            QLocale().toDouble(
-                str(s).replace(unit_str(network, btc_symbol=btc_symbol), "").strip().replace(" ", "")
-            )[0]
-            * 1e8
-        )
-        value = int(round(f))
+    def from_btc_str(
+        cls, s: str, network: bdk.Network, btc_symbol: str = BitcoinSymbol.ISO.value
+    ) -> "Satoshis":
+        value = parse_btc_str_to_sats(s, network=network, btc_symbol=btc_symbol)
         return Satoshis(value=value, network=network)
 
     def __repr__(self):
