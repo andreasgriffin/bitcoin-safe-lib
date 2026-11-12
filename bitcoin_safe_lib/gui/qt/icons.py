@@ -48,6 +48,8 @@ class SvgTools:
     def __init__(self, get_icon_path: Callable[[str], str], theme_file: str | None) -> None:
         self.get_icon_path = get_icon_path
         self.theme_file = theme_file
+        self._theme_rows: list[list[str]] | None = None
+        self._svg_content_cache: dict[tuple[str, bool, ReplaceTuples, str, bool], str] = {}
 
     @classmethod
     def read_source_file(cls, svg_path: str) -> str:
@@ -60,18 +62,30 @@ class SvgTools:
             with open(svg_path, encoding="utf-8") as file:
                 return file.read()
 
-    def auto_theme_svg(self, svg_content: str, color: QColor | None = None) -> str:
-        csv_rows = []
-        if self.theme_file:
-            with open(self.theme_file) as file:
-                csv_reader = csv.reader(file)
-                all_rows = [row for row in csv_reader if row]
-                csv_rows = all_rows[1:]
+    def _get_theme_rows(self) -> list[list[str]]:
+        """Parse the theme csv once and cache its rows."""
+        if self._theme_rows is None:
+            csv_rows: list[list[str]] = []
+            if self.theme_file:
+                with open(self.theme_file) as file:
+                    csv_reader = csv.reader(file)
+                    all_rows = [row for row in csv_reader if row]
+                    csv_rows = all_rows[1:]
+            self._theme_rows = csv_rows
+        return self._theme_rows
 
-        replace_strings = csv_rows
+    @staticmethod
+    def _current_color() -> QColor:
+        """Return the palette color that theming is based on."""
+        return QApplication.palette().color(QPalette.ColorRole.WindowText)
+
+    def auto_theme_svg(self, svg_content: str, color: QColor | None = None) -> str:
+        csv_rows = self._get_theme_rows()
 
         if color is None:
-            color = QApplication.palette().color(QPalette.ColorRole.WindowText)
+            color = self._current_color()
+        replace_strings = list(csv_rows)
+
         # Replace "currentColor" in the SVG with the desired color
         if "currentColor" not in [r[0] for r in csv_rows]:
             replace_strings += [["currentColor", color.name(), color.name()]]
@@ -130,13 +144,24 @@ class SvgTools:
             return ""
 
         if icon_file.suffix.lstrip(".") in ["svg", "svgz"]:
-            svg_content = self.read_source_file(str(icon_file))
+            # reading and theming icons happens a lot (e.g. hundreds of times while
+            # opening a wallet in bitcoin-safe), so cache the result. The key contains
+            # everything the result depends on, so no explicit invalidation is needed.
+            color = self._current_color()
+            key = (icon_basename, auto_theme, replace_tuples, color.name(), is_dark_mode())
+            svg_content = self._svg_content_cache.get(key)
+            if svg_content is None:
+                svg_content = self.read_source_file(str(icon_file))
 
-            if replace_tuples:
-                for old_text, new_text in replace_tuples:
-                    svg_content = svg_content.replace(old_text, new_text)
+                if replace_tuples:
+                    for old_text, new_text in replace_tuples:
+                        svg_content = svg_content.replace(old_text, new_text)
 
-            return self.auto_theme_svg(svg_content) if auto_theme else svg_content
+                svg_content = self.auto_theme_svg(svg_content, color=color) if auto_theme else svg_content
+                self._svg_content_cache[key] = svg_content
+            if len(self._svg_content_cache) > 1000:
+                self._svg_content_cache.clear()
+            return svg_content
         else:
             return ""
 
